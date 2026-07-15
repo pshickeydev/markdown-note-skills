@@ -7,10 +7,10 @@ description: >-
   tasks/, adds it to today's journal, and reports confirmation. Use when
   asked to create a task, open a task, track an issue, or add to the task
   list.
-compatibility: Requires Obsidian MCP server and Jira MCP server
+compatibility: Requires Obsidian MCP server and the official Atlassian Rovo MCP server (Jira)
 metadata:
   author: pshickeydev
-  version: "1.2"
+  version: "1.3"
 ---
 
 ## Procedure
@@ -24,7 +24,11 @@ Examine the input arguments:
 
 ### Step 2 — Jira-linked task
 
-Fetch the issue using the Jira `jira_get_issue` tool with the Jira key and fields `summary,priority,labels`.
+Resolve the Jira `cloudId`:
+1. Use the configured Jira domain (see `AGENTS.md`) as the `cloudId` parameter directly — the Rovo MCP accepts a site hostname (e.g. `yourcompany.atlassian.net`) and resolves it to the cloud ID automatically.
+2. If a call using the hostname fails, call the Jira `getAccessibleAtlassianResources` tool to list the sites the current session can access, and use the matching `id` as `cloudId` instead. If more than one site is returned and none obviously matches, ask the user which to use.
+
+Fetch the issue using the Jira `getJiraIssue` tool with `cloudId`, `issueIdOrKey` set to the Jira key, and `fields: ["summary", "priority", "labels"]`.
 
 Extract and map:
 
@@ -38,7 +42,7 @@ Extract and map:
 
 Build the `jira_link` URL:
 - Default: `https://yourcompany.atlassian.net/browse/{JIRA_KEY}`
-- If the API response `self` URL contains a different domain, use that domain instead
+- If the issue response `self` URL contains a different domain, use that domain instead
 
 Derive the filename slug:
 1. Take the Jira key (lowercased) + `-` + summary (lowercased)
@@ -115,4 +119,6 @@ Print a confirmation including:
 - **NEVER use `write_note` on an existing journal.** Journals accumulate user content throughout the day. Always use `patch_note` for modifications. `write_note` is only for initial creation when no journal exists yet.
 - Build the `jira_link` URL from the API response `self` URL domain. Default to `yourcompany.atlassian.net` if not detectable.
 - Some older journals use `Targets:` instead of `Tasks:` as the section header. Detect and preserve the existing header; only use `Tasks:` for newly created journals.
-- If the Jira API call fails, inform the user and offer to create the task manually with the Jira key pre-filled in the `jira_link` field.
+- Almost every Jira Rovo MCP tool requires `cloudId`. Try the configured site hostname first; only call `getAccessibleAtlassianResources` if that fails.
+- The Rovo MCP authenticates via OAuth, not an API token. If a Jira tool call fails with an authentication/authorization error, tell the user to complete sign-in in their MCP client — do not ask for an API token or URL, since token-based auth isn't supported.
+- If the Jira tool call fails for any other reason, inform the user and offer to create the task manually with the Jira key pre-filled in the `jira_link` field.

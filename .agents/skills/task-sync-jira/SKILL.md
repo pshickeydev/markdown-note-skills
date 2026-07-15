@@ -5,10 +5,10 @@ description: >-
   task notes for issues that don't already exist, using the standard task
   template. Adds new tasks to today's journal. Use when asked to sync from
   Jira, import Jira issues, pull backlog from Jira, or open tasks from Jira.
-compatibility: Requires Obsidian MCP server and Jira MCP server
+compatibility: Requires Obsidian MCP server and the official Atlassian Rovo MCP server (Jira)
 metadata:
   author: pshickeydev
-  version: "1.3"
+  version: "1.4"
 ---
 
 ## Procedure
@@ -23,11 +23,15 @@ Examine the input arguments:
 - If empty, use:
   `assignee = currentUser() AND status != Done AND status != Closed ORDER BY priority DESC, created ASC`
 
-### Step 2 — Fetch issues from Jira
+### Step 2 — Resolve cloudId and fetch issues
 
-Use the Jira `jira_search` tool with the JQL query, fields `summary,priority,status,labels`, and limit 50.
+Resolve the Jira `cloudId` the same way as `task-create`:
+1. Use the configured Jira domain (see `AGENTS.md`) as the `cloudId` parameter directly.
+2. If that fails, call the Jira `getAccessibleAtlassianResources` tool to list accessible sites and use the matching `id` as `cloudId` instead. Ask the user if more than one site is returned and none obviously matches.
 
-If the result indicates more pages (`total` > `startAt + limit`), continue paginating with `start_at` until all results are collected. Safety cap: 200 issues. If more than 200, warn the user and suggest narrowing the JQL.
+Use the Jira `searchJiraIssuesUsingJql` tool with `cloudId`, the JQL query, `fields: ["summary", "priority", "status", "labels"]`, `maxResults: 100`, and `searchResultMode: "issues"`.
+
+If the response includes a `nextPageToken`, continue paginating by passing it back in as `nextPageToken` on the next call until no token is returned. Safety cap: 200 issues. If more than 200, warn the user and suggest narrowing the JQL.
 
 ### Step 3 — Identify existing tasks
 
@@ -121,6 +125,9 @@ State total created and journal updated.
 - **NEVER use `write_note` on an existing journal.** Journals accumulate user content throughout the day. Always use `patch_note` for modifications. `write_note` is only for initial creation when no journal exists yet.
 - Build the `jira_link` URL from the API response `self` URL domain. Default to `yourcompany.atlassian.net` if not detectable.
 - Duplicate detection uses Jira key prefix matching, not exact slug — slugs may vary slightly between runs due to summary wording.
-- If Jira returns more than 50 new tasks, warn the user and suggest narrowing the JQL before creating.
+- Almost every Jira Rovo MCP tool requires `cloudId`. Try the configured site hostname first; only call `getAccessibleAtlassianResources` if that fails.
+- The Rovo MCP authenticates via OAuth, not an API token. If a Jira tool call fails with an authentication/authorization error, tell the user to complete sign-in in their MCP client — do not ask for an API token or URL, since token-based auth isn't supported.
+- `searchJiraIssuesUsingJql` paginates via `nextPageToken`, not `startAt`/`limit`. `maxResults` tops out at 100 per call.
+- If Jira returns more than 200 new tasks, warn the user and suggest narrowing the JQL before creating.
 - `patch_note` cannot use empty `newString` — use a space character if needed.
 - Do NOT use `search_notes` for frontmatter filtering — always batch-read and filter in-memory.

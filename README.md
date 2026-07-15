@@ -20,7 +20,7 @@ These skills give any compatible AI coding agent a lightweight personal task boa
 ## Prerequisites
 
 - **Obsidian MCP server** — all skills require read/write access to your vault via [MCP Vault](https://github.com/bitbonsai/mcpvault)
-- **Jira MCP server** — required by `task-create` and `task-sync-jira` for fetching issue data
+- **Atlassian Rovo MCP server** (official, remote) — required by `task-create` and `task-sync-jira` for fetching Jira issue data
 
 ## Installation
 
@@ -55,7 +55,9 @@ Copy `AGENTS.md.example` to `AGENTS.md` and fill in your vault path and Jira dom
 Ensure your agent has access to:
 
 - An **Obsidian MCP server** connected to your vault
-- A **Jira MCP server** if you want Jira integration
+- The official **Atlassian Rovo MCP server** if you want Jira integration (remote, OAuth-authenticated — no API token needed)
+
+**Jira authentication:** the Rovo MCP server uses OAuth 2.1, not API tokens. The first time a skill calls a Jira tool in a given client, that client prompts you to sign in via your browser — there's no `JIRA_URL`/`JIRA_API_TOKEN`/`JIRA_USERNAME` to configure. Because sign-in is interactive, `task-create` and `task-sync-jira` need a client environment where that browser prompt can be completed; fully headless/non-interactive setups may not be able to authenticate.
 
 ### 5. Vault structure
 
@@ -150,6 +152,8 @@ Review last week's notes
 ### Jira domain
 
 By default, Jira links use `https://yourcompany.atlassian.net`. To use a different instance, update the `jira_link` URL construction in the relevant `SKILL.md` files and in `AGENTS.md`.
+
+The same domain (as a bare hostname, e.g. `yourcompany.atlassian.net`) is also passed as the `cloudId` parameter the Rovo MCP's Jira tools require — the server resolves it to the underlying cloud ID automatically. If that lookup ever fails, the skills fall back to the Rovo MCP's `getAccessibleAtlassianResources` tool to list accessible sites.
 
 ### Priority mapping
 

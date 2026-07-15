@@ -77,6 +77,12 @@ Topic notes live at `topics/{slug}.md`. They are stub files that accumulate entr
 
 By default, Jira links use `https://yourcompany.atlassian.net`. Update the domain in the skill files if your instance differs.
 
+Skills call the official Atlassian Rovo MCP server, whose Jira tools require a `cloudId` parameter on nearly every call. Pass the same domain as a bare hostname (e.g. `yourcompany.atlassian.net`) as `cloudId` — the server resolves it automatically. If that fails, the skills fall back to the `getAccessibleAtlassianResources` tool to list accessible sites.
+
+## Jira Authentication
+
+The Rovo MCP server authenticates via OAuth 2.1 — there is no API token, username, or URL to configure for auth. The first Jira tool call in a session may trigger an interactive browser sign-in in the client. If a Jira tool call fails with an authentication/authorization error, tell the user to complete sign-in in their MCP client rather than asking them for an API token; token-based auth is not supported by this server.
+
 ## Priority Mapping from Jira
 
 | Jira priority | Obsidian priority |
