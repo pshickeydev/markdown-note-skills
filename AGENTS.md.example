@@ -1,104 +1,85 @@
-# Obsidian Task Skills
+# Obsidian Journal Skills
 
-Skills for managing tasks and daily journals in an Obsidian vault via MCP.
+Skills for managing daily journals, note organization, weekly summaries, and topic aggregations in an Obsidian vault via MCP.
 
 > **Maintenance note:** When updating this file, reflect relevant changes in `README.md` as well. `AGENTS.md` is the authoritative source for agent-facing conventions; `README.md` is the user-facing documentation. Keep them in sync.
+
+## Project Overview
+
+This repository contains AI agent skills for managing daily journals, note organization, weekly summaries, and topic aggregations in an Obsidian vault via MCP (Model Context Protocol). Skills are plain Markdown files with structured procedures that any compatible agent can follow.
+
+## Repository Structure
+
+```
+.agents/skills/          ← Canonical skill definitions (agent-agnostic)
+.crush/skills            ← Symlink → .agents/skills (for Crush)
+.claude/skills           ← Symlink → .agents/skills (for Claude Code)
+AGENTS.md.example        ← Project context template (copy to AGENTS.md and customize)
+```
+
+## Skills
+
+| Skill | Description |
+|-------|-------------|
+| `journal-note` | Append freeform notes to today's daily journal |
+| `journal-organize` | Group flat daily journal notes into themed topic sub-sections with `###` headings |
+| `journal-weekly` | Generate a weekly summary grouped by topic with backlinks to daily journals and topic notes |
+
+## MCP Server Dependencies
+
+| MCP Server | Required By | Purpose |
+|------------|-------------|---------|
+| Obsidian | All skills | Read and write journal notes, summaries, and topic notes in the vault |
 
 ## Vault Location
 
 Configure the vault path in your Obsidian MCP server (e.g., `~/Documents/MyVault/`).
 
-## Templates
+## Key Conventions
+
+### Templates
 
 Templates live in the vault's `templates/` directory. Skills read these at runtime to create new files — they are never hardcoded in skill procedures. This lets users customize output formats without modifying skill definitions.
 
 | Template | Used by | Purpose |
 |----------|---------|---------|
-| `templates/daily.md` | `task-daily`, `task-create`, `task-sync-jira`, `journal-note` | Daily journal scaffold |
-| `templates/task.md` | `task-create`, `task-sync-jira` | Task note frontmatter schema |
+| `templates/daily.md` | `journal-note` | Daily journal scaffold |
 | `templates/weekly.md` | `journal-weekly` | Weekly summary scaffold |
 | `templates/topic.md` | `journal-weekly` | Topic note frontmatter and structure |
 
 If a required template is missing when a skill runs, the skill will inform the user and stop.
 
-## Task Frontmatter Template
+### Journal Format
 
-All 9 fields are required on every task note (defined in `templates/task.md`):
-
-```yaml
-title: ""
-status: ""        # open | doing | done | cancelled
-priority: ""      # highest | high | medium | low
-created_date: ""  # YYYY-MM-DD
-due_date: ""
-completed_date: ""
-cancelled_date: ""
-jira_link: ""
-tags: []
-```
-
-## Filename Patterns
-
-- Jira-linked: `{jira-key-lower}-{title-slug}.md` (e.g. `proj-123-fix-login-timeout.md`)
-- Standalone: `{descriptive-slug}.md`
-- All task notes live in the `tasks/` directory
-
-## Journal Format
-
-Journals live at `journals/YYYY-MM-DD.md`. The template has two sections:
+Journals live at `journals/YYYY-MM-DD.md`:
 
 ```markdown
 # YYYY-MM-DD
 
-## Tasks:
-- [ ] [[task-slug]]
-
 ## Notes:
--
+- First note entry
+- Second note entry
 ```
 
-- Some older journals use `Targets:` instead of `Tasks:` — preserve whichever header exists, don't rename it.
-- The `Tasks:` section is owned by task skills (`task-create`, `task-daily`, `task-status`, `task-sync-jira`).
-- The `Notes:` section is owned by `journal-note` (appending) and `journal-organize` (grouping into topic sub-sections). Read (but never modified) by `journal-weekly`.
+- Some older journals may contain legacy `Tasks:` or `Targets:` headers above `## Notes:` — skills ignore everything before `## Notes:` and never modify other sections.
+- The `## Notes:` section is owned by `journal-note` (appending) and `journal-organize` (grouping into topic sub-sections). Read (but never modified) by `journal-weekly`.
 
-## Weekly Summaries
+### Weekly Summaries
 
 Weekly summaries live at `summaries/YYYY-Www.md` (ISO 8601 week numbers). They aggregate the Notes section content from a week's daily journals, grouped by topic, with `[[wikilinks]]` back to source journals and to topic notes. The `summaries/` directory is owned by `journal-weekly`.
 
-## Topic Notes
+### Topic Notes
 
 Topic notes live at `topics/{slug}.md`. They are stub files that accumulate entries from weekly summaries over time, providing cross-week aggregation by topic. Each topic note has `## [[YYYY-Www]]` sections for each week that referenced that topic, newest first. The `topics/` directory is shared — `journal-weekly` is the primary writer. Topic notes should not be manually created with slugs that conflict with auto-generated ones.
 
-## Journal Safety Rule
+### Journal Safety Rule
 
 **NEVER use `write_note` on a journal file that already exists.** Journals accumulate user-written content throughout the day. Using `write_note` (mode `overwrite`) would destroy that content. Only use `patch_note` to modify existing journals. `write_note` is permitted ONLY when `read_note` confirms the journal does not exist yet.
 
-## Jira Domain
+### Obsidian MCP Tool Gotchas
 
-By default, Jira links use `https://yourcompany.atlassian.net`. Update the domain in the skill files if your instance differs.
-
-Skills call the official Atlassian Rovo MCP server, whose Jira tools require a `cloudId` parameter on nearly every call. Pass the same domain as a bare hostname (e.g. `yourcompany.atlassian.net`) as `cloudId` — the server resolves it automatically. If that fails, the skills fall back to the `getAccessibleAtlassianResources` tool to list accessible sites.
-
-## Jira Authentication
-
-The Rovo MCP server authenticates via OAuth 2.1 — there is no API token, username, or URL to configure for auth. The first Jira tool call in a session may trigger an interactive browser sign-in in the client. If a Jira tool call fails with an authentication/authorization error, tell the user to complete sign-in in their MCP client rather than asking them for an API token; token-based auth is not supported by this server.
-
-## Priority Mapping from Jira
-
-| Jira priority | Obsidian priority |
-|---------------|-------------------|
-| Critical, Blocker | highest |
-| Major | high |
-| Medium, Normal | medium |
-| Minor, Low, Trivial | low |
-| (missing) | medium |
-
-## Obsidian MCP Tool Gotchas
-
-- `get_notes_info` returns file metadata only (size, modified date) — NOT frontmatter field values. Do not use it to read status, priority, etc.
-- `search_notes` with `searchFrontmatter: true` does fuzzy text matching, not exact field matching. Do not use it to filter by specific frontmatter values — it returns false positives.
+- `get_notes_info` returns file metadata only (size, modified date) — NOT note content or frontmatter values.
+- `search_notes` with `searchFrontmatter: true` does fuzzy text matching, not exact field matching. Use `read_note` or `read_multiple_notes` with exact paths instead.
 - `search_notes` is capped at `limit: 20` max results.
-- `read_multiple_notes` accepts max 10 paths per call. Always pass `includeContent: false` when only frontmatter is needed.
+- `read_multiple_notes` accepts max 10 paths per call.
 - `patch_note` cannot replace with empty string — use a single space if needed.
-
-**Reliable pattern:** Use `read_multiple_notes` (includeContent: false) in batches of 10, then filter in-memory. Do not pre-filter with `get_notes_info` or `search_notes`.

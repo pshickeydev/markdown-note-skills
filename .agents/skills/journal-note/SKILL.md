@@ -15,7 +15,7 @@ metadata:
 
 **NEVER use `write_note` on a journal file that already exists.** User-written notes, meeting records, and freeform content accumulate in journals throughout the day. Using `write_note` (mode `overwrite`) would destroy that content. Only use `patch_note` to modify existing journals. `write_note` is permitted ONLY when `read_note` confirms the journal does not exist yet.
 
-**Section ownership:** This skill owns the `## Notes:` section only. Do NOT modify the Tasks/Targets section — that is owned by task skills (`task-create`, `task-daily`, `task-status`, `task-sync-jira`).
+**Section ownership:** This skill owns the `## Notes:` section only. Do NOT modify any other sections that may exist in the journal.
 
 ## Procedure
 
@@ -64,8 +64,8 @@ If multi-line, show the first line followed by `(+N more lines)`.
 ## Gotchas
 
 - **NEVER use `write_note` on an existing journal.** Always use `patch_note`. `write_note` is only for initial creation when no journal exists yet.
-- Do NOT add task checkboxes (`- [ ]`) — that's the responsibility of task skills. This skill only adds plain bullets.
-- Do NOT modify the Tasks/Targets section. This skill owns the Notes section only.
+- This skill only adds plain bullets under `## Notes:`.
+- Do NOT modify sections outside of `## Notes:`. This skill owns the Notes section only.
 - `patch_note` cannot replace with empty string — use a single space if removing content.
 - Preserve existing Notes section content exactly. The new note is appended, never prepended or inserted in the middle of existing notes.
 - Do NOT use `get_notes_info` for checking journal content — it returns file metadata only, not note content or frontmatter values.

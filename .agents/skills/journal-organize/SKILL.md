@@ -15,7 +15,7 @@ metadata:
 
 **NEVER use `write_note` on a journal file that already exists.** User-written notes, meeting records, and freeform content accumulate in journals throughout the day. Using `write_note` (mode `overwrite`) would destroy that content. Only use `patch_note` to modify existing journals.
 
-**Section ownership:** This skill owns the `## Notes:` section only. Do NOT modify the Tasks/Targets section — that is owned by task skills (`task-create`, `task-daily`, `task-status`, `task-sync-jira`).
+**Section ownership:** This skill owns the `## Notes:` section only. Do NOT modify any other sections that may exist in the journal.
 
 ## Procedure
 
@@ -27,7 +27,7 @@ If the input arguments contain a date in `YYYY-MM-DD` format, use that date. Oth
 
 Read `journals/{date}.md` using the Obsidian `read_note` tool.
 
-**If the journal does not exist**, inform the user and stop. This skill does not create journals — use `task-daily` or `journal-note` to create one first.
+**If the journal does not exist**, inform the user and stop. This skill does not create journals — use `journal-note` to create one first.
 
 **If the journal exists**, proceed to Step 3.
 
@@ -156,7 +156,7 @@ Topics: {comma-separated list of heading names}
 
 - **NEVER use `write_note` on an existing journal.** Always use `patch_note`. This is critical — journals accumulate content throughout the day.
 - **Preserve bullet content exactly.** This skill only adds `###` headings and regroups — it does NOT rewrite, summarize, expand, or editorialize bullet text. The user's words are preserved verbatim.
-- **Do NOT touch the Tasks/Targets section.** Only modify content under `## Notes:`.
+- **Do NOT touch sections outside Notes.** Only modify content under `## Notes:`.
 - **Handle multi-line bullets carefully.** A note entry may span multiple lines (e.g. a bullet followed by indented sub-bullets or continuation text). Never insert a heading in the middle of a multi-line entry — place boundary headings only before a top-level `- ` line, and when a multi-line bullet is a patch anchor, keep its full text together.
 - **The Notes section is always last** in the current journal format. There is no content after it.
 - **Insert headings incrementally — never replace the whole Notes section in one patch.** A single `patch_note` whose `oldString` spans the entire Notes section (many bullets) is unreliable and repeatedly fails to match due to whitespace/newline normalization. Use one small `patch_note` per heading, anchored on the two adjacent bullets at each topic boundary (see Step 7). This has proven reliable across sessions where the monolithic-replace approach failed.
