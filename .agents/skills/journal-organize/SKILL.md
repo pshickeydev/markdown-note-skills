@@ -24,7 +24,23 @@ If the input arguments contain a date in `YYYY-MM-DD` format, use that date. Oth
 
 ### Step 2 — Read the journal
 
-Read `{vault}/journals/{date}.md` using your file reading tool (resolving `{vault}` from the vault location in `AGENTS.md`).
+#### 2a. Resolve vault location (`{vault}`)
+Locate the main `AGENTS.md` file from the skills repository to determine `{vault}` (the base directory of your Obsidian vault), ensuring this works regardless of the current working directory:
+
+1. **Locate `AGENTS.md`**: Find the repository's `AGENTS.md` by checking in order:
+   - **Relative to this skill file**: Resolve `../../../AGENTS.md` relative to this `SKILL.md` file's directory (follow symlinks to the canonical path if needed).
+   - **Git repository root**: Query the git root enclosing this skill (`git -C <skill_dir> rev-parse --show-toplevel`/AGENTS.md).
+   - **Current working directory**: Check `./AGENTS.md`.
+   - **Environment / project context**: Check if `AGENTS.md` or `## Vault Location` is provided in system prompt / project instructions.
+2. **Extract vault path**: Read `AGENTS.md` and extract the path under the `## Vault Location` section.
+3. **Normalize path**:
+   - Strip any surrounding backticks, quotes, or trailing slashes.
+   - Expand `~` or `$HOME` to the user's absolute home directory (e.g. `/home/username/Documents/MkdwnNotes`).
+   - If the path is relative, resolve it relative to the directory containing `AGENTS.md`.
+4. **Validate**: If `AGENTS.md` cannot be located or `## Vault Location` is unconfigured/missing (or contains placeholder text), inform the user that `AGENTS.md` needs a valid `## Vault Location` configured, and stop.
+
+#### 2b. Read journal
+Read `{vault}/journals/{date}.md` using your file reading tool.
 
 **If the journal does not exist**, inform the user and stop. This skill does not create journals — use `journal-note` to create one first.
 
@@ -159,6 +175,7 @@ Topics: {comma-separated list of heading names}
 - **Handle multi-line bullets carefully.** A note entry may span multiple lines (e.g. a bullet followed by indented sub-bullets or continuation text). Never insert a heading in the middle of a multi-line entry — place boundary headings only before a top-level `- ` line, and keep full multi-line entries intact.
 - **The Notes section is always last** in the current journal format. There is no content after it.
 - **Insert headings incrementally.** Targeted boundary edits prevent whitespace/newline mismatch bugs and protect unedited content.
+- **Resolving vault path:** Always resolve `{vault}` by finding the main `AGENTS.md` (checking `../../../AGENTS.md` relative to this skill file or git root) and extracting `## Vault Location` (expanding `~` to home directory). Do not hardcode or assume vault locations.
 - If the user has `###` headings already but wants to re-organize, work incrementally:
   - **Rename** a heading: replace `### old text` with `### new text`.
   - **Remove** a heading (to merge two groups): remove the `### heading` line and any extra blank lines.

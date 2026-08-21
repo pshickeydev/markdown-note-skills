@@ -40,7 +40,7 @@ All skills use standard agent file operations (read, edit/patch, write, director
 
 ## Vault Location
 
-Set your local vault path here (e.g., `~/Documents/MyVault/`). All paths in skill procedures (`journals/`, `summaries/`, `topics/`, `templates/`) are relative to this root.
+Set your local vault path here (e.g., `~/Documents/MyVault/`). All paths in skill procedures (`journals/`, `summaries/`, `topics/`, `templates/`) are relative to this root. Skills resolve `{vault}` by locating `AGENTS.md` (navigating relative to the skill definition, repository root, or project context) and extracting this path.
 
 ## Key Conventions
 

@@ -8,7 +8,7 @@ description: >-
   week, generate a weekly report, or summarize this week.
 metadata:
   author: pshickeydev
-  version: "1.0"
+  version: "1.1"
 ---
 
 ## Critical Rule — Never modify source journals
@@ -41,7 +41,23 @@ Do NOT derive the date from note content, file metadata, or any other source.
 
 ### Step 2 — Find journals
 
-Calculate all 7 dates from Monday to Sunday of the target week. List or check files in `{vault}/journals/` (resolving `{vault}` from the vault location in `AGENTS.md`) to match against the 7 expected dates (`YYYY-MM-DD.md`).
+#### 2a. Resolve vault location (`{vault}`)
+Locate the main `AGENTS.md` file from the skills repository to determine `{vault}` (the base directory of your Obsidian vault), ensuring this works regardless of the current working directory:
+
+1. **Locate `AGENTS.md`**: Find the repository's `AGENTS.md` by checking in order:
+   - **Relative to this skill file**: Resolve `../../../AGENTS.md` relative to this `SKILL.md` file's directory (follow symlinks to the canonical path if needed).
+   - **Git repository root**: Query the git root enclosing this skill (`git -C <skill_dir> rev-parse --show-toplevel`/AGENTS.md).
+   - **Current working directory**: Check `./AGENTS.md`.
+   - **Environment / project context**: Check if `AGENTS.md` or `## Vault Location` is provided in system prompt / project instructions.
+2. **Extract vault path**: Read `AGENTS.md` and extract the path under the `## Vault Location` section.
+3. **Normalize path**:
+   - Strip any surrounding backticks, quotes, or trailing slashes.
+   - Expand `~` or `$HOME` to the user's absolute home directory (e.g. `/home/username/Documents/MkdwnNotes`).
+   - If the path is relative, resolve it relative to the directory containing `AGENTS.md`.
+4. **Validate**: If `AGENTS.md` cannot be located or `## Vault Location` is unconfigured/missing (or contains placeholder text), inform the user that `AGENTS.md` needs a valid `## Vault Location` configured, and stop.
+
+#### 2b. Check week journals
+Calculate all 7 dates from Monday to Sunday of the target week. List or check files in `{vault}/journals/` to match against the 7 expected dates (`YYYY-MM-DD.md`).
 
 Report which journals were found and which dates are missing:
 
@@ -191,6 +207,7 @@ Topic notes updated: {list of topics/{slug}.md paths}
 - **Section insertion for topic notes:** Match the `# {slug}` title line and insert the new `## [[YYYY-Www]]` section immediately below it. This places the new week between the title and any existing week sections.
 - **Duplicate week sections:** Before editing a topic note, check whether `## [[YYYY-Www]]` already appears in the content. If it does, either skip or ask the user about replacement.
 - **Misc entries are NOT added to topic notes.** They exist only in the weekly summary.
+- **Resolving vault path:** Always resolve `{vault}` by finding the main `AGENTS.md` (checking `../../../AGENTS.md` relative to this skill file or git root) and extracting `## Vault Location` (expanding `~` to home directory). Do not hardcode or assume vault locations.
 - **Em dash in backlinks:** Use ` — ` (space-em-dash-space) before the `[[date]]` backlink in weekly summaries.
 - Some journals may have `Targets:` instead of `Tasks:` as their first section header. The skill should look for `## Notes:` specifically and ignore everything before it.
 - **ISO 8601 week numbering** has edge cases around year boundaries (e.g. Dec 29–31 may belong to Week 1 of the following year). Compute week numbers correctly using ISO 8601 rules.

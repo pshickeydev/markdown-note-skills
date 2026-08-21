@@ -43,7 +43,7 @@ Skills live in `.agents/skills/` with symlinks for agent-specific discovery:
 
 ### 3. Configure project context
 
-Copy `AGENTS.md.example` to `AGENTS.md` and fill in your vault path. This file contains vault conventions, journal format rules, and critical safety rules (e.g., never overwriting existing journals). `AGENTS.md` is gitignored so your personal config stays local.
+Copy `AGENTS.md.example` to `AGENTS.md` and fill in your vault path under `## Vault Location`. Skills locate `AGENTS.md` at runtime (relative to the skill directory, repository root, or project context) to resolve the notes directory path. `AGENTS.md` is gitignored so your personal config stays local.
 
 ### 4. Vault structure
 
