@@ -6,7 +6,6 @@ description: >-
   summaries/ and updates topic notes in topics/ for cross-week aggregation.
   Use when asked to create a weekly summary, wrap up the week, review the
   week, generate a weekly report, or summarize this week.
-compatibility: Requires Obsidian MCP server
 metadata:
   author: pshickeydev
   version: "1.0"
@@ -14,11 +13,11 @@ metadata:
 
 ## Critical Rule — Never modify source journals
 
-**NEVER modify any file in `journals/`.** This skill only reads daily journals to extract content. All output goes to `summaries/` and `topics/`. Using `write_note` or `patch_note` on any `journals/*.md` file is strictly prohibited.
+**NEVER modify any file in `journals/`.** This skill only reads daily journals to extract content. All output goes to `summaries/` and `topics/`. Modifying or editing any `journals/*.md` file during a weekly rollup is strictly prohibited.
 
-**NEVER use `write_note` on an existing topic note.** Topic notes accumulate content across weeks. Always use `patch_note` to add new sections. `write_note` is only permitted when `read_note` confirms the topic note does not exist yet.
+**NEVER overwrite an existing topic note.** Topic notes accumulate content across weeks. Always edit/patch to append or insert new week sections. Writing a new topic note file is permitted ONLY when checking confirms the topic note does not exist yet.
 
-**NEVER use `write_note` on an existing weekly summary** without explicit user approval to regenerate.
+**NEVER overwrite an existing weekly summary** without explicit user approval to regenerate.
 
 **File ownership:** This skill owns the `summaries/` directory and shares ownership of `topics/` (topic notes are append-only stubs that accumulate cross-week sections).
 
@@ -38,11 +37,11 @@ Compute the Monday and Sunday dates for the target week using ISO 8601 week numb
 Generating summary for Week {N}: {Monday} to {Sunday}
 ```
 
-Do NOT derive the date from Obsidian note content, vault metadata, or any other source.
+Do NOT derive the date from note content, file metadata, or any other source.
 
 ### Step 2 — Find journals
 
-Calculate all 7 dates from Monday to Sunday of the target week. Use the Obsidian `list_directory` tool on `journals/` to get all journal filenames. Match against the 7 expected dates (`YYYY-MM-DD.md`).
+Calculate all 7 dates from Monday to Sunday of the target week. List or check files in `{vault}/journals/` (resolving `{vault}` from the vault location in `AGENTS.md`) to match against the 7 expected dates (`YYYY-MM-DD.md`).
 
 Report which journals were found and which dates are missing:
 
@@ -55,7 +54,7 @@ If zero journals are found, inform the user and stop. If fewer than 7 are found,
 
 ### Step 3 — Read journals
 
-Batch-read found journals using the Obsidian `read_multiple_notes` tool with `includeContent: true` and `includeFrontmatter: true`. A full week is at most 7 journals, so one batch suffices.
+Read the found journal files using your file reading tool.
 
 For each journal, extract the `## Notes:` section:
 1. Find the `## Notes:` header.
@@ -84,9 +83,10 @@ Associate each bullet with its source journal date for backlinking.
 
 Convert each topic name to a lowercase-kebab-case slug for use as a filename in `topics/`:
 - Lowercase, spaces to hyphens, remove non-alphanumeric characters (except hyphens), collapse consecutive hyphens.
-- Strip characters that are problematic in Obsidian filenames: `/\:|?*<>"#^[]`
+- Strip characters that are problematic in filenames: `/\:|?*<>"#^[]`
+- Truncate to 60 characters.
 
-**Cross-reference existing topics:** Use the Obsidian `list_directory` tool on `topics/` (if the directory exists). For each candidate topic slug, check if a matching or similar topic note already exists. Prefer reusing existing slugs over creating near-duplicates. For example, if `topics/security.md` already exists, do not create `topics/security-review.md` for related content — merge under `security`.
+**Cross-reference existing topics:** Check `{vault}/topics/` (if the directory exists). For each candidate topic slug, check if a matching or similar topic note already exists. Prefer reusing existing slugs over creating near-duplicates. For example, if `topics/security.md` already exists, do not create `topics/security-review.md` for related content — merge under `security`.
 
 Bullets that do not fit any clear topic go under `Misc`. Misc entries are NOT linked to any topic note.
 
@@ -114,15 +114,15 @@ Wait for user confirmation before proceeding. If the user requests changes (rena
 
 ### Step 7 — Check for existing summary
 
-Use the Obsidian `read_note` tool on `summaries/{YYYY-Www}.md`.
+Check if `{vault}/summaries/{YYYY-Www}.md` exists.
 
-**If it already exists**, inform the user and ask: regenerate (overwrite) or cancel? If regenerating, warn that topic note entries from the previous generation will not be automatically cleaned up — the user may need to manually edit topic notes if they were modified since the last run. If the user confirms, proceed to Step 8 using `write_note` with mode `overwrite`.
+**If it already exists**, inform the user and ask: regenerate (overwrite) or cancel? If regenerating, warn that topic note entries from the previous generation will not be automatically cleaned up — the user may need to manually edit topic notes if they were modified since the last run. If the user confirms, proceed to Step 8.
 
 **If it does not exist**, proceed to Step 8.
 
 ### Step 8 — Create weekly summary
 
-1. Read `templates/weekly.md` using the Obsidian `read_note` tool. If the template does not exist, inform the user and stop — they need to create the template first.
+1. Read `{vault}/templates/weekly.md`. If the template does not exist, inform the user and stop — they need to create the template first.
 
 2. Replace template placeholders:
    - `{{week}}` → `YYYY-Www` (e.g. `2026-W26`)
@@ -136,21 +136,21 @@ Use the Obsidian `read_note` tool on `summaries/{YYYY-Www}.md`.
 
 5. Append the grouped topic sections under `## Topics`. For each topic:
    - Emit a blank line before the heading.
-   - Use `### [[{topic-slug}]]` as the heading (wikilink creates a graph edge to the topic note).
+   - Use `### [[{topic-slug}]]` as the heading (wikilink creates a graph edge to the topic note in Obsidian).
    - List each bullet verbatim from the source journal, with ` — [[{date}]]` appended to link back to the source daily journal.
    - If the original bullet already ends with a journal reference, do not duplicate it.
 
 6. Append a `### Misc` section (if any ungrouped bullets exist) with the same bullet format but no wikilink in the heading.
 
-7. Write the result to `summaries/{YYYY-Www}.md` using the Obsidian `write_note` tool.
+7. Write the result to `{vault}/summaries/{YYYY-Www}.md`.
 
 ### Step 9 — Update topic notes
 
 For each topic referenced in the summary (excluding Misc):
 
-1. Use the Obsidian `read_note` tool to check if `topics/{topic-slug}.md` exists.
+1. Check if `{vault}/topics/{topic-slug}.md` exists.
 
-2. **If it does not exist**, read `templates/topic.md` using the Obsidian `read_note` tool (once, before the loop — reuse for all topics). If the template does not exist, inform the user and stop. Replace `{{created_date}}` with today's date and `{{slug}}` with the topic slug. Append the first week section:
+2. **If it does not exist**, read `{vault}/templates/topic.md` (once, before the loop — reuse for all topics). If the template does not exist, inform the user and stop. Replace `{{created_date}}` with today's date and `{{slug}}` with the topic slug. Append the first week section:
 
    ```markdown
    ## [[YYYY-Www]]
@@ -158,19 +158,19 @@ For each topic referenced in the summary (excluding Misc):
    - {bullet 2}
    ```
 
-   Write to `topics/{topic-slug}.md` using the Obsidian `write_note` tool.
+   Write to `{vault}/topics/{topic-slug}.md`.
 
-3. **If it already exists**, first check whether a `## [[YYYY-Www]]` section for this week already appears in the content. If so, ask the user whether to replace it or skip. If replacing, use `patch_note` with `oldString` matching the existing week section (from `## [[YYYY-Www]]` through to the next `## [[` heading or end of file).
+3. **If it already exists**, first check whether a `## [[YYYY-Www]]` section for this week already appears in the content. If so, ask the user whether to replace it or skip. If replacing, edit the file to replace the existing week section (from `## [[YYYY-Www]]` through to the next `## [[` heading or end of file).
 
-   To insert a new week section, use `patch_note`:
-   - `oldString`: the `# {topic-slug}` title line exactly as it appears in the file.
-   - `newString`: that same title line followed by a blank line, then `## [[YYYY-Www]]`, then each bullet. This places the new week immediately after the title (newest first, reverse chronological).
+   To insert a new week section, edit the file:
+   - Target the `# {topic-slug}` title line exactly as it appears in the file.
+   - Replace with that same title line followed by a blank line, then `## [[YYYY-Www]]`, then each bullet. This places the new week immediately after the title (newest first, reverse chronological).
 
 4. Bullet text in topic notes does NOT include the ` — [[date]]` journal backlink suffix. The topic note gets clean bullet text only. The journal backlinks live in the weekly summary.
 
 ### Step 10 — Confirm
 
-Read back `summaries/{YYYY-Www}.md` using the Obsidian `read_note` tool to verify the write succeeded.
+Read back `{vault}/summaries/{YYYY-Www}.md` to verify the write succeeded.
 
 Print:
 
@@ -185,16 +185,13 @@ Topic notes updated: {list of topics/{slug}.md paths}
 ## Gotchas
 
 - **NEVER modify any file in `journals/`.** This skill is read-only for journal content. All writes go to `summaries/` and `topics/`.
-- **NEVER use `write_note` on an existing topic note.** Topic notes accumulate content across weeks. Always use `patch_note` to add new sections. `write_note` is only for initial creation of a topic note that does not yet exist.
+- **NEVER overwrite an existing topic note.** Topic notes accumulate content across weeks. Always edit/patch to add new sections. Writing a new file is only for initial creation of a topic note that does not yet exist.
 - **Preserve bullet content exactly.** When copying bullets from journals into the summary and topic notes, do not rewrite, summarize, expand, or editorialize. The `## Highlights` section is the only place for AI-generated text.
 - **Topic note section ordering:** Newest week at the top (immediately after the `# {slug}` title). This gives a reverse-chronological view.
-- **`patch_note` insertion for topic notes:** The `oldString` must match the `# {slug}` title line exactly as it appears in the file. The `newString` is that title line followed by a blank line, then the new `## [[YYYY-Www]]` section. This inserts the new week between the title and any existing week sections.
-- **Duplicate week sections:** Before patching a topic note, check whether `## [[YYYY-Www]]` already appears in the content. If it does, either skip or ask the user about replacement.
+- **Section insertion for topic notes:** Match the `# {slug}` title line and insert the new `## [[YYYY-Www]]` section immediately below it. This places the new week between the title and any existing week sections.
+- **Duplicate week sections:** Before editing a topic note, check whether `## [[YYYY-Www]]` already appears in the content. If it does, either skip or ask the user about replacement.
 - **Misc entries are NOT added to topic notes.** They exist only in the weekly summary.
 - **Em dash in backlinks:** Use ` — ` (space-em-dash-space) before the `[[date]]` backlink in weekly summaries.
-- `read_multiple_notes` accepts max 10 paths per call. A full week is 7 journals, so one batch suffices.
-- `patch_note` cannot replace with empty string — use a single space if needed.
-- Do NOT use `search_notes` to find journals or topic notes — use `list_directory` + `read_note` or `read_multiple_notes` with exact paths.
 - Some journals may have `Targets:` instead of `Tasks:` as their first section header. The skill should look for `## Notes:` specifically and ignore everything before it.
 - **ISO 8601 week numbering** has edge cases around year boundaries (e.g. Dec 29–31 may belong to Week 1 of the following year). Compute week numbers correctly using ISO 8601 rules.
-- **Topic slug sanitization:** Strip characters problematic in Obsidian filenames: `/\:|?*<>"#^[]`. Collapse consecutive hyphens. Truncate to 60 characters.
+- **Topic slug sanitization:** Strip characters problematic in filenames: `/\:|?*<>"#^[]`. Collapse consecutive hyphens. Truncate to 60 characters.

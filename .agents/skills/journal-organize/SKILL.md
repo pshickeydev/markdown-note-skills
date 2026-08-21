@@ -5,7 +5,6 @@ description: >-
   into themed sub-sections with ### topic headings. Preserves all original
   content — only adds structure. Use when asked to organize a journal,
   clean up today's notes, group my notes, or tidy the daily.
-compatibility: Requires Obsidian MCP server
 metadata:
   author: pshickeydev
   version: "1.1"
@@ -13,7 +12,7 @@ metadata:
 
 ## Critical Rule — Never overwrite existing journals
 
-**NEVER use `write_note` on a journal file that already exists.** User-written notes, meeting records, and freeform content accumulate in journals throughout the day. Using `write_note` (mode `overwrite`) would destroy that content. Only use `patch_note` to modify existing journals.
+**NEVER overwrite an existing journal file with a complete rewrite.** User-written notes, meeting records, and freeform content accumulate in journals throughout the day. Overwriting a journal file destroys that content. Only use targeted file edits/patches to modify existing journals.
 
 **Section ownership:** This skill owns the `## Notes:` section only. Do NOT modify any other sections that may exist in the journal.
 
@@ -21,11 +20,11 @@ metadata:
 
 ### Step 1 — Determine date
 
-If the input arguments contain a date in `YYYY-MM-DD` format, use that date. Otherwise use the **system date** from your environment context (the `Today's date` field in the system prompt). Do NOT derive the date from Obsidian note content, vault metadata, or any other source.
+If the input arguments contain a date in `YYYY-MM-DD` format, use that date. Otherwise use the **system date** from your environment context (the `Today's date` field in the system prompt). Do NOT derive the date from note content, file metadata, or any other source.
 
 ### Step 2 — Read the journal
 
-Read `journals/{date}.md` using the Obsidian `read_note` tool.
+Read `{vault}/journals/{date}.md` using your file reading tool (resolving `{vault}` from the vault location in `AGENTS.md`).
 
 **If the journal does not exist**, inform the user and stop. This skill does not create journals — use `journal-note` to create one first.
 
@@ -43,11 +42,11 @@ Ask whether the user wants to re-organize (which will replace existing topic gro
 
 ### Step 4 — Parse the notes into entries
 
-Read the content under the `## Notes:` section and break it into individual note entries — you need this list to group by topic in Step 5. You are parsing for understanding, **not** assembling a replacement block (Step 7 edits the journal in place with small patches, so you never rebuild the whole section).
+Read the content under the `## Notes:` section and break it into individual note entries — you need this list to group by topic in Step 5. You are parsing for understanding, **not** assembling a replacement block for the whole file (Step 7 edits the journal in place with targeted heading insertions, leaving bullets intact).
 
 1. Find the `## Notes:` header (the Notes section is always last, so it runs to the end of the file).
 2. Parse individual bullet points. Each top-level `- ` line is one note entry. Continuation lines (indented, or lines not starting with `- `) belong to the preceding bullet — keep them attached to that entry.
-3. Record the exact text of the first and last bullet of the file, and of each bullet you expect to sit at a topic boundary — Step 7 uses these verbatim as patch anchors.
+3. Record the exact text of the first and last bullet of the file, and of each bullet you expect to sit at a topic boundary — Step 7 uses these verbatim as edit anchors.
 
 If the Notes section is empty or contains only the template placeholder (`- `), inform the user there is nothing to organize and stop.
 
@@ -99,19 +98,19 @@ Wait for user confirmation before proceeding. If the user requests changes to th
 
 ### Step 7 — Apply the organization (incremental heading insertion)
 
-**Do NOT attempt a single `patch_note` that replaces the entire Notes section** (from `## Notes:` to end of file). That approach is unreliable: a large multi-bullet `oldString` frequently fails to match because of whitespace/newline normalization between what `read_note` returns and what is stored on disk. Matching one giant block is all-or-nothing and repeatedly fails in practice.
+**Do NOT rewrite or overwrite the entire journal or the entire Notes section in one broad replacement.** That risks clobbering text, whitespace mismatches, or destroying content outside Notes.
 
-Instead, apply the organization as a series of **small, targeted `patch_note` calls** — one per heading you need to insert. Each patch inserts a `### {Topic Heading}` at a topic boundary while leaving all bullets in place.
+Instead, apply the organization as **targeted edits/patches** — inserting each `### {Topic Heading}` at its respective topic boundary while leaving all bullets in place.
 
 **Procedure:**
 
-1. **First heading** — insert it directly after the `## Notes:` header. Use a small, unique `oldString` that anchors on the header plus the first bullet:
-   - `oldString`:
+1. **First heading** — insert it directly after the `## Notes:` header:
+   - Target the anchor:
      ```
      ## Notes:
      - {exact text of first bullet}
      ```
-   - `newString`:
+   - Replace with:
      ```
      ## Notes:
 
@@ -119,13 +118,13 @@ Instead, apply the organization as a series of **small, targeted `patch_note` ca
      - {exact text of first bullet}
      ```
 
-2. **Each subsequent heading** — insert it at the boundary between the last bullet of the previous group and the first bullet of the new group. Anchor on both bullets so the match is unique:
-   - `oldString`:
+2. **Each subsequent heading** — insert it at the boundary between the last bullet of the previous group and the first bullet of the new group:
+   - Target the anchor:
      ```
      - {exact text of last bullet in previous group}
      - {exact text of first bullet in new group}
      ```
-   - `newString`:
+   - Replace with:
      ```
      - {exact text of last bullet in previous group}
 
@@ -134,17 +133,17 @@ Instead, apply the organization as a series of **small, targeted `patch_note` ca
      ```
 
 **Rules for reliable matching:**
-- Keep each `oldString` as small as possible — typically just the two adjacent bullets at the boundary (or the header + first bullet). Two-line anchors match reliably where a full-section block does not.
-- Copy bullet text **verbatim** from the `read_note` output, including inline links, punctuation, and em-dashes. Do not retype or paraphrase.
-- If a boundary bullet is very long, you may truncate the `oldString` to a unique **prefix** of that bullet (enough to be unambiguous) rather than including the whole line — but the `newString` must reproduce that same prefix exactly.
-- Apply the patches **in document order** (top to bottom). Each patch adds a blank line + heading; it never removes or reorders bullets.
-- If a patch reports `matchCount: 0`, re-read the affected lines with `read_note_lines` and retry with a corrected anchor. Do not fall back to `write_note` or to a full-section replace.
+- Keep each edit anchor small — typically just the two adjacent bullets at the boundary (or the header + first bullet).
+- Copy bullet text **verbatim** from the file, including inline links, punctuation, and em-dashes. Do not retype or paraphrase.
+- If a boundary bullet is very long, anchor on a unique prefix of that bullet.
+- Apply the edits in document order (top to bottom).
+- If an edit fails to match, re-read the affected lines to verify exact on-disk text and retry with a corrected anchor.
 
-**Note on blank-line separators:** because each heading is inserted with a leading blank line only when it follows the `## Notes:` header or a preceding bullet, verify in Step 8 that every `###` heading has a blank line before it. If any two topic groups ended up adjacent without a separator (e.g. the last bullet of one group and the next heading are on consecutive lines with no blank line), add the blank line with one more small `patch_note`.
+**Note on blank-line separators:** Ensure every `###` heading has a blank line before it.
 
 ### Step 8 — Confirm
 
-Read the journal back using the Obsidian `read_note` tool to verify the patch applied correctly.
+Read the journal back using your file reading tool to verify the edits applied correctly.
 
 Print:
 ```
@@ -154,18 +153,13 @@ Topics: {comma-separated list of heading names}
 
 ## Gotchas
 
-- **NEVER use `write_note` on an existing journal.** Always use `patch_note`. This is critical — journals accumulate content throughout the day.
+- **NEVER overwrite an existing journal file.** Always use targeted in-place edits. This is critical — journals accumulate content throughout the day.
 - **Preserve bullet content exactly.** This skill only adds `###` headings and regroups — it does NOT rewrite, summarize, expand, or editorialize bullet text. The user's words are preserved verbatim.
 - **Do NOT touch sections outside Notes.** Only modify content under `## Notes:`.
-- **Handle multi-line bullets carefully.** A note entry may span multiple lines (e.g. a bullet followed by indented sub-bullets or continuation text). Never insert a heading in the middle of a multi-line entry — place boundary headings only before a top-level `- ` line, and when a multi-line bullet is a patch anchor, keep its full text together.
+- **Handle multi-line bullets carefully.** A note entry may span multiple lines (e.g. a bullet followed by indented sub-bullets or continuation text). Never insert a heading in the middle of a multi-line entry — place boundary headings only before a top-level `- ` line, and keep full multi-line entries intact.
 - **The Notes section is always last** in the current journal format. There is no content after it.
-- **Insert headings incrementally — never replace the whole Notes section in one patch.** A single `patch_note` whose `oldString` spans the entire Notes section (many bullets) is unreliable and repeatedly fails to match due to whitespace/newline normalization. Use one small `patch_note` per heading, anchored on the two adjacent bullets at each topic boundary (see Step 7). This has proven reliable across sessions where the monolithic-replace approach failed.
-- **Keep each `oldString` to ~2 lines.** Small anchors (header + first bullet, or two adjacent bullets) match reliably; large blocks do not. Copy bullet text verbatim from `read_note` output.
-- **On `matchCount: 0`, re-read and retry — do not escalate to `write_note`.** Use `read_note_lines` to get the exact on-disk text for the failing anchor, then retry the small patch. Never fall back to `write_note` (it would destroy accumulated journal content) or to a full-section replace.
-- `patch_note` cannot replace with empty string — use a single space if needed.
-- Do NOT use `search_notes` for finding journals — use `read_note` with the exact path `journals/{date}.md`.
-- If the user has `###` headings already but wants to re-organize, still work incrementally, one small patch at a time — never a large replace:
-  - **Rename** a heading: `oldString` = the `### old text` line, `newString` = the `### new text` line.
-  - **Remove** a heading (to merge two groups): `oldString` = the blank line + `### heading` + the following bullet; `newString` = just that following bullet (drops the heading and its separator).
-  - **Add** a new heading: same boundary-insertion patch as Step 7.
-  Because heading insertion/removal never moves bullets, re-grouping that requires reordering interleaved bullets still needs the interleaving handling from Step 5.
+- **Insert headings incrementally.** Targeted boundary edits prevent whitespace/newline mismatch bugs and protect unedited content.
+- If the user has `###` headings already but wants to re-organize, work incrementally:
+  - **Rename** a heading: replace `### old text` with `### new text`.
+  - **Remove** a heading (to merge two groups): remove the `### heading` line and any extra blank lines.
+  - **Add** a new heading: same boundary-insertion edit as Step 7.

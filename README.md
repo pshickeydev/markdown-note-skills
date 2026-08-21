@@ -1,6 +1,6 @@
 # Obsidian Journal Skills
 
-AI agent skills for managing daily journals, note organization, weekly summaries, and topic aggregations in an [Obsidian](https://obsidian.md/) vault via MCP (Model Context Protocol).
+AI agent skills for managing daily journals, note organization, weekly summaries, and topic aggregations in an [Obsidian](https://obsidian.md/) vault using standard file tools.
 
 These skills give any compatible AI coding agent structured workflows for personal knowledge management — appending daily notes, organizing bullet points into topic headings, compiling weekly rollups with bidirectional links, and maintaining cross-week topic notes — all stored as plain Markdown files in your Obsidian vault.
 
@@ -14,7 +14,8 @@ These skills give any compatible AI coding agent structured workflows for person
 
 ## Prerequisites
 
-- **Obsidian MCP server** — all skills require read/write access to your vault via [MCP Vault](https://github.com/bitbonsai/mcpvault) or a compatible Obsidian MCP server
+- An AI coding agent with standard file tools (read, edit/patch, write, list files/directories)
+- An Obsidian vault directory on your local filesystem
 
 ## Installation
 
@@ -38,17 +39,13 @@ Skills live in `.agents/skills/` with symlinks for agent-specific discovery:
 
 **Claude Code** — Copy or symlink `.claude/skills/*` into your project's `.claude/skills/` directory.
 
-**Other agents** — Point your agent at `.agents/skills/`. Each skill is a self-contained `SKILL.md` with YAML frontmatter (name, description, compatibility) and a step-by-step procedure the agent follows.
+**Other agents** — Point your agent at `.agents/skills/`. Each skill is a self-contained `SKILL.md` with YAML frontmatter (name, description, metadata) and a step-by-step procedure the agent follows.
 
 ### 3. Configure project context
 
 Copy `AGENTS.md.example` to `AGENTS.md` and fill in your vault path. This file contains vault conventions, journal format rules, and critical safety rules (e.g., never overwriting existing journals). `AGENTS.md` is gitignored so your personal config stays local.
 
-### 4. Set up MCP servers
-
-Ensure your agent has access to an **Obsidian MCP server** connected to your vault.
-
-### 5. Vault structure
+### 4. Vault structure
 
 The skills expect this directory layout inside your Obsidian vault:
 
@@ -107,7 +104,7 @@ Review last week's notes
 
 ### Vault path
 
-The vault path is configured in your Obsidian MCP server, not in these skills. Update your MCP server config to point to your vault.
+Set your vault path in `AGENTS.md` under `## Vault Location`.
 
 ## Adding a New Agent
 
@@ -124,7 +121,6 @@ The skill definitions in `.agents/skills/` are agent-agnostic — each `SKILL.md
 ---
 name: skill-name
 description: When to activate this skill
-compatibility: Required MCP servers
 metadata:
   author: author
   version: "1.0"
