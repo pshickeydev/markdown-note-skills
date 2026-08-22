@@ -1,0 +1,3 @@
+args: "2026-02-04"
+fixture: eval/journal-organize/dataset/cases/002-mixed-topics/vault
+target: journals/2026-02-04.md

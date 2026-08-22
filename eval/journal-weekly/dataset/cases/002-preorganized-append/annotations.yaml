@@ -1,0 +1,14 @@
+target: summaries/2026-W07.md
+week: "2026-W07"
+journal_dates:
+  - "2026-02-09"
+  - "2026-02-11"
+expected_bullets:
+  - "sandbox-runner: added prompt-injection test suite"
+  - "sandbox-runner: SEC-204 fix merged"
+journals_must_retain:
+  journals/2026-02-09.md:
+    - "sandbox-runner: added prompt-injection test suite"
+    - "sandbox-runner: triaged SEC-204"
+  journals/2026-02-11.md:
+    - "sandbox-runner: SEC-204 fix merged"

@@ -2,3 +2,8 @@
 .crush/logs/
 AGENTS.md
 !AGENTS.md.example
+
+# agent-eval-harness run artifacts
+eval/runs/
+tmp/
+mlflow.db

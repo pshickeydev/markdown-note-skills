@@ -16,6 +16,8 @@ This repository contains AI agent skills for managing daily journals, note organ
 .crush/skills            ← Symlink → .agents/skills (for Crush)
 .claude/skills           ← Symlink → .agents/skills (for Claude Code)
 AGENTS.md.example        ← Project context template (copy to AGENTS.md and customize)
+eval/                    ← agent-eval-harness configs, runner wrappers, and test cases
+.pi/skills/              ← Pi orchestrator skills (/skill:eval-* — run, review, optimize, …)
 ```
 
 ### Skill format
@@ -37,6 +39,10 @@ Each skill is a directory containing a `SKILL.md` file with:
 ## Tool Dependencies
 
 All skills use standard agent file operations (read, edit/patch, write, directory listing). No specialized MCP servers are required.
+
+## Evaluations
+
+The `eval/` directory holds [agent-eval-harness](https://github.com/opendatahub-io/agent-eval-harness) configuration (one `eval.yaml` per skill, plus starter test cases and the `eval/bin` runner wrappers). It is **pinned to harness v1.41.0** and runs both skills and quality judges through pi. Pi also orchestrates the pipeline via the `.pi/skills/eval-*` skills (`/skill:eval-run`, `/skill:eval-setup`, `/skill:eval-review`, `/skill:eval-optimize`, `/skill:eval-compare`, `/skill:eval-check`, …), mirroring the harness's Claude Code commands. See `eval/README.md` for setup, the runner model, and vault-isolation safeguards. The harness version is intentionally pinned because the config relies on non-public harness internals.
 
 ## Vault Location
 

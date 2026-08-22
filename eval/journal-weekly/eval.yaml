@@ -1,0 +1,168 @@
+# Agent Eval Harness config — journal-weekly skill
+# Run with: /eval-run --config eval/journal-weekly/eval.yaml --model <model>
+
+name: journal-weekly-eval
+description: >-
+  Evaluate the journal-weekly skill: reading a week of daily journals and
+  producing a topic-grouped summary in summaries/ with backlinks, plus
+  append-only topic notes in topics/ — without ever modifying journals/.
+
+execution:
+  mode: case
+  skill: journal-weekly
+  arguments: "{args}"
+  env:
+    PROJECT_ROOT: $PWD
+
+# Opaque CLI runner — the wrapper drives pi by default; set AGENT_EVAL_CLI to
+# use a different agent. {config_dir} (absolute) anchors the command since the
+# runner runs with cwd set to the case workspace.
+runner:
+  type: cli
+  command: "{config_dir}/../bin/run-skill.sh journal-weekly {workspace} {output_dir} {model} {system_prompt}"
+  system_prompt: |
+    You are generating a weekly summary. Follow the journal-weekly skill.
+    Read journals read-only; write only to summaries/ and topics/. Use
+    [[wikilinks]] back to source journals and topic notes. Never modify any
+    file under journals/.
+
+models:
+  # pi model ids (skill and the agent judge both run via pi). The
+  # `anthropic-vertex/` prefix pins them to Vertex; a bare id resolves to the
+  # direct `anthropic` provider and fails asking for Anthropic auth. Override
+  # the skill model with --model (keep the provider prefix).
+  skill: anthropic-vertex/claude-sonnet-4-6
+  judge: anthropic-vertex/claude-opus-4-6
+
+dataset:
+  path: dataset/cases
+  schema: |
+    Each case directory contains:
+    - input.yaml: 'args' (a week id YYYY-Www or a date in the week), 'fixture'
+      (repo-relative vault dir with journals/, templates/, and possibly
+      existing topics/), 'target' (the summaries/YYYY-Www.md to be created).
+    - reference/: an example weekly summary and topic notes.
+    - annotations.yaml: expected week id, journal dates, and bullets that must
+      appear in the summary.
+
+outputs:
+  # Named 'artifacts' (not 'output' — reserved by agent-judge staging).
+  - path: artifacts
+    schema: |
+      The staged vault mirrored under artifacts/. Relevant artifacts:
+      artifacts/summaries/YYYY-Www.md (the weekly summary) and
+      artifacts/topics/*.md (cross-week topic notes). journals/ must be unchanged.
+
+traces:
+  stdout: true
+  stderr: true
+  metrics: true
+
+judges:
+  - name: summary_created
+    description: |
+      The weekly summary file exists at the expected path and is non-trivial.
+    check: |
+      ann = outputs.get("annotations", {})
+      files = outputs.get("files", {})
+      target = ann["target"]
+      content = files.get(target) or next(
+          (v for k, v in files.items() if k.endswith(target)), None)
+      if content is None:
+          return False, f"Summary {target} not created"
+      if len(content.strip()) < 100:
+          return False, f"Summary too short ({len(content.strip())} chars)"
+      return True, f"Summary created ({len(content)} chars)"
+
+  - name: has_topics_and_backlinks
+    description: |
+      The summary groups content under ### topic sections and links back to
+      source daily journals with [[YYYY-MM-DD]] wikilinks.
+    check: |
+      import re
+      ann = outputs.get("annotations", {})
+      files = outputs.get("files", {})
+      target = ann["target"]
+      content = files.get(target) or next(
+          (v for k, v in files.items() if k.endswith(target)), "")
+      topics = sum(1 for l in content.splitlines() if l.strip().startswith("### "))
+      if topics < 1:
+          return False, "No ### topic sections in summary"
+      dates = ann.get("journal_dates", [])
+      linked = [d for d in dates if f"[[{d}]]" in content]
+      if dates and not linked:
+          return False, "No journal backlinks ([[YYYY-MM-DD]]) found"
+      return True, f"{topics} topics; {len(linked)}/{len(dates)} journals backlinked"
+
+  - name: journals_untouched
+    description: |
+      Source journals are unchanged — journal-weekly is read-only for
+      journals/. Verified by confirming each collected journal still contains
+      its original bullets and gained no summary artifacts (backlinks/topics).
+    check: |
+      ann = outputs.get("annotations", {})
+      files = outputs.get("files", {})
+      for rel, must in ann.get("journals_must_retain", {}).items():
+          content = files.get(rel) or next(
+              (v for k, v in files.items() if k.endswith(rel)), None)
+          if content is None:
+              return False, f"Journal missing from outputs: {rel}"
+          for needle in must:
+              if needle not in content:
+                  return False, f"Journal {rel} altered — lost {needle!r}"
+          if "### [[" in content or "] — [[" in content:
+              return False, f"Journal {rel} gained summary artifacts"
+      return True, "journals/ contents preserved"
+
+  - name: content_fidelity
+    description: |
+      Bullets carried into the summary match the source journals verbatim.
+    check: |
+      ann = outputs.get("annotations", {})
+      files = outputs.get("files", {})
+      target = ann["target"]
+      content = files.get(target) or next(
+          (v for k, v in files.items() if k.endswith(target)), "")
+      missing = [b for b in ann.get("expected_bullets", []) if b not in content]
+      if missing:
+          return False, f"Missing source bullets in summary: {missing[:2]}"
+      return True, "Expected source bullets present in summary"
+
+  # Agent judge — runs through pi (same auth as the runner).
+  - name: summary_quality
+    if: "not annotations.get('skip_quality', False)"
+    feedback_type: int
+    score_range: [1, 5]
+    agent:
+      runner:
+        type: cli
+        command: "{config_dir}/../bin/run-judge.sh {output_dir} {model} {args}"
+      allowed_tools: [Read, Write]
+      inputs: [artifacts]
+    description: |
+      Judge the overall weekly summary: coherent topic grouping, an accurate
+      2-3 sentence Highlights section, correct backlinks, and clean append-only
+      topic notes.
+    prompt: |
+      You are grading the output of the "journal-weekly" skill, which turns a
+      week of daily journals into a topic-grouped summary (summaries/) plus
+      append-only topic notes (topics/).
+
+      Generated files under artifacts/ (summary + topic notes + copied source
+      journals). Grade ONLY these markdown files; ignore any execution logs
+      (stdout/stderr/metrics) shown here:
+      {{ outputs }}
+
+      Score 1-5 on:
+      - coherent topic grouping across the week
+      - a concise, accurate 2-3 sentence ## Highlights blurb
+      - [[wikilinks]] to source journals ([[YYYY-MM-DD]]) and topic notes
+      - verbatim bullets; topic notes are clean append-only stubs
+      5 = excellent, faithful rollup; 1 = poor or inaccurate.
+
+thresholds:
+  summary_created: {min_pass_rate: 1.0}
+  has_topics_and_backlinks: {min_pass_rate: 1.0}
+  journals_untouched: {min_pass_rate: 1.0}
+  content_fidelity: {min_pass_rate: 1.0}
+  summary_quality: {min_mean: 3.5}

@@ -1,0 +1,7 @@
+target: journals/2026-02-03.md
+min_headings: 3
+bullets:
+  - "widget-api MR !15 reviewed, left comments on retry logic"
+  - "widget-api MR !15 follow-up: rebased and re-ran pipeline"
+  - "Meeting: bluebird sync — agreed on Q1 milestones"
+  - "Read article on ISO 8601 week numbering edge cases"

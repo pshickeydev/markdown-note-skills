@@ -1,0 +1,7 @@
+target: journals/2026-01-15.md
+journal_preexisted: true
+expected_bullets:
+  - "Reviewed PR #42 for the auth refactor"
+must_retain:
+  - "Standup: discussed sprint goals"
+preamble_intact: "# 2026-01-15"

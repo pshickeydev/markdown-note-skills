@@ -1,0 +1,156 @@
+# Agent Eval Harness config — journal-note skill
+# Run with: /eval-run --config eval/journal-note/eval.yaml --model <model>
+
+name: journal-note-eval
+description: >-
+  Evaluate the journal-note skill: appending freeform notes as bullets under
+  the ## Notes: section of a daily journal without disturbing other content.
+
+execution:
+  mode: case
+  skill: journal-note
+  # {args} is read from each case's input.yaml by the runner wrapper.
+  arguments: "{args}"
+  env:
+    # Resolved from the caller's environment at /eval-run time. The wrapper
+    # uses it to locate dataset fixtures regardless of the workspace cwd.
+    PROJECT_ROOT: $PWD
+
+# Opaque CLI runner — delegates to a wrapper that stages a vault fixture, runs
+# the agent headlessly, and copies results into the artifacts dir. The wrapper
+# drives pi by default; set AGENT_EVAL_CLI to use a different agent.
+# {config_dir} is this eval.yaml's dir (absolute); the runner runs with cwd set
+# to the case workspace, so the command path must be absolute.
+runner:
+  type: cli
+  command: "{config_dir}/../bin/run-skill.sh journal-note {workspace} {output_dir} {model} {system_prompt}"
+  system_prompt: |
+    You are appending a note to a daily journal. Follow the journal-note skill
+    exactly. Preserve all existing content; only add bullets under ## Notes:.
+
+models:
+  # Both models are pi model ids (skill runs via pi; the *_quality judge is an
+  # agent judge that also runs via pi). The `anthropic-vertex/` prefix pins them
+  # to the Vertex-hosted provider — without it pi resolves the bare id to the
+  # direct `anthropic` provider and the run fails asking for Anthropic auth.
+  # Override the skill model with --model (keep the provider prefix).
+  skill: anthropic-vertex/claude-sonnet-4-6
+  judge: anthropic-vertex/claude-opus-4-6
+
+dataset:
+  path: dataset/cases
+  schema: |
+    Each case directory contains:
+    - input.yaml: 'args' (skill arguments, e.g. "2026-01-15 <note text>"),
+      'fixture' (repo-relative path to a vault fixture dir with templates/ and
+      journals/), and 'target' (the journals/YYYY-MM-DD.md the skill writes).
+    - reference/: the expected journal file after the note is appended.
+    - annotations.yaml: expected note text and whether the journal pre-existed.
+
+outputs:
+  # Named 'artifacts' (not 'output'): agent-judge staging reserves 'output' for
+  # the verdict file and would skip artifacts placed there.
+  - path: artifacts
+    schema: |
+      The staged vault after the run, mirrored under artifacts/. The relevant
+      artifact is artifacts/journals/YYYY-MM-DD.md — the daily journal the skill
+      created or appended to.
+
+traces:
+  stdout: true
+  stderr: true
+  metrics: true
+
+judges:
+  - name: note_appended
+    description: |
+      The expected note text appears as a bullet under the ## Notes: section
+      of the target journal.
+    check: |
+      import yaml, os
+      ann = outputs.get("annotations", {})
+      target = ann["target"]
+      files = outputs.get("files", {})
+      content = files.get(target)
+      if content is None:
+          # tolerate key stored without the output/ prefix
+          content = next((v for k, v in files.items() if k.endswith(target)), None)
+      if content is None:
+          return False, f"Target journal {target} not found in outputs"
+      if "## Notes:" not in content:
+          return False, "No ## Notes: section in journal"
+      notes = content.split("## Notes:", 1)[1]
+      for needle in ann.get("expected_bullets", []):
+          if needle not in notes:
+              return False, f"Missing note text under Notes: {needle!r}"
+      return True, "All expected note bullets present under Notes"
+
+  - name: preserves_existing
+    description: |
+      Any content that existed before the run (header, prior bullets) is still
+      present — the skill must never overwrite or drop journal content.
+    check: |
+      ann = outputs.get("annotations", {})
+      files = outputs.get("files", {})
+      target = ann["target"]
+      content = files.get(target) or next(
+          (v for k, v in files.items() if k.endswith(target)), "")
+      for needle in ann.get("must_retain", []):
+          if needle not in content:
+              return False, f"Lost pre-existing content: {needle!r}"
+      return True, "Pre-existing content retained"
+
+  - name: notes_section_only
+    description: |
+      The skill only touched the ## Notes: section — no stray edits to other
+      headers that may precede it (e.g. legacy Tasks:/Targets:).
+    check: |
+      ann = outputs.get("annotations", {})
+      files = outputs.get("files", {})
+      target = ann["target"]
+      content = files.get(target) or next(
+          (v for k, v in files.items() if k.endswith(target)), "")
+      pre = ann.get("preamble_intact", "")
+      if pre and pre not in content:
+          return False, "Content above ## Notes: was altered"
+      return True, "Sections outside Notes untouched"
+
+  # Agent judge — runs through pi (same auth as the runner), not the harness's
+  # built-in Anthropic client. pi reads the staged artifacts (also inlined below
+  # via {{ outputs }}) and writes ./output/score.json.
+  - name: formatting_quality
+    if: "not annotations.get('skip_quality', False)"
+    feedback_type: int
+    score_range: [1, 5]
+    agent:
+      runner:
+        type: cli
+        command: "{config_dir}/../bin/run-judge.sh {output_dir} {model} {args}"
+      allowed_tools: [Read, Write]
+      inputs: [artifacts]
+    description: |
+      Judge how faithfully the note was appended: verbatim pass-through,
+      correct bullet formatting, one bullet per input line, no reordering or
+      editorializing, and no edits outside the Notes section.
+    prompt: |
+      You are grading the output of the "journal-note" skill, which appends a
+      user's note as bullet(s) under the "## Notes:" section of a daily journal.
+
+      Requested note (from the case input):
+      {{ inputs }}
+
+      Generated files (grade ONLY the markdown journal under artifacts/;
+      ignore any execution logs — stdout/stderr/metrics — shown here):
+      {{ outputs }}
+
+      Score 1-5:
+      - 5: note added verbatim as a bullet under ## Notes: (one bullet per input
+        line), all prior content preserved, nothing outside Notes changed.
+      - 3: note added but with minor issues (reworded, odd bullet formatting).
+      - 1: note missing, prior content lost, or edits outside the Notes section.
+
+thresholds:
+  note_appended: {min_pass_rate: 1.0}
+  preserves_existing: {min_pass_rate: 1.0}
+  notes_section_only: {min_pass_rate: 1.0}
+  formatting_quality: {min_mean: 3.5}

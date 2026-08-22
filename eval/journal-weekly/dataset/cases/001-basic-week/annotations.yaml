@@ -1,0 +1,18 @@
+target: summaries/2026-W06.md
+week: "2026-W06"
+journal_dates:
+  - "2026-02-02"
+  - "2026-02-04"
+  - "2026-02-06"
+expected_bullets:
+  - "widget-api MR !15 opened for review"
+  - "widget-api MR !15 merged"
+  - "Meeting: bluebird sync — planned the week"
+journals_must_retain:
+  journals/2026-02-02.md:
+    - "widget-api MR !15 opened for review"
+    - "Meeting: bluebird sync — planned the week"
+  journals/2026-02-04.md:
+    - "widget-api MR !15 addressed review comments"
+  journals/2026-02-06.md:
+    - "widget-api MR !15 merged"

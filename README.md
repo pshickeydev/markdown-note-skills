@@ -100,6 +100,19 @@ Generate a weekly summary for 2026-W34
 Review last week's notes
 ```
 
+## Evaluations
+
+Automated evaluations for these skills live under [`eval/`](eval/), wired to the
+[agent-eval-harness](https://github.com/opendatahub-io/agent-eval-harness)
+(pinned to **v1.41.0**). Each skill has an `eval.yaml` plus starter test cases with
+throwaway vault fixtures; both the skill runs and the quality judges execute
+through [pi](https://github.com/earendil-works/pi-coding-agent). Pi also drives
+the whole pipeline: the `.pi/skills/eval-*` orchestrator skills
+(`/skill:eval-setup`, `/skill:eval-run`, `/skill:eval-review`, `/skill:eval-optimize`,
+`/skill:eval-compare`, `/skill:eval-check`, …) mirror the harness's Claude Code
+commands. See [`eval/README.md`](eval/README.md) for setup, the runner model,
+version pinning, and the vault-isolation safeguards.
+
 ## Customization
 
 ### Vault path

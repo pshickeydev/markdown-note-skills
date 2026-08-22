@@ -1,0 +1,6 @@
+target: journals/2026-01-16.md
+journal_preexisted: false
+expected_bullets:
+  - "Kicked off Q1 planning workstream"
+must_retain: []
+preamble_intact: "# 2026-01-16"

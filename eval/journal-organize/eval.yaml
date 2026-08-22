@@ -1,0 +1,126 @@
+# Agent Eval Harness config — journal-organize skill
+# Run with: /eval-run --config eval/journal-organize/eval.yaml --model <model>
+
+name: journal-organize-eval
+description: >-
+  Evaluate the journal-organize skill: grouping flat bullets under ## Notes:
+  into ### topic sub-sections while preserving every bullet verbatim.
+
+execution:
+  mode: case
+  skill: journal-organize
+  arguments: "{args}"
+  env:
+    PROJECT_ROOT: $PWD
+
+# Opaque CLI runner — the wrapper drives pi by default; set AGENT_EVAL_CLI to
+# use a different agent. {config_dir} (absolute) anchors the command since the
+# runner runs with cwd set to the case workspace.
+runner:
+  type: cli
+  command: "{config_dir}/../bin/run-skill.sh journal-organize {workspace} {output_dir} {model} {system_prompt}"
+  system_prompt: |
+    You are organizing a daily journal. Follow the journal-organize skill.
+    Insert ### topic headings between existing bullets; never rewrite, reorder,
+    summarize, or drop bullet text, and never touch content outside ## Notes:.
+
+models:
+  # pi model ids (skill and the agent judge both run via pi). The
+  # `anthropic-vertex/` prefix pins them to Vertex; a bare id resolves to the
+  # direct `anthropic` provider and fails asking for Anthropic auth. Override
+  # the skill model with --model (keep the provider prefix).
+  skill: anthropic-vertex/claude-sonnet-4-6
+  judge: anthropic-vertex/claude-opus-4-6
+
+dataset:
+  path: dataset/cases
+  schema: |
+    Each case directory contains:
+    - input.yaml: 'args' (e.g. the date YYYY-MM-DD), 'fixture' (repo-relative
+      vault dir containing journals/YYYY-MM-DD.md with flat bullets), and
+      'target' (the journals/YYYY-MM-DD.md the skill edits in place).
+    - reference/: an example organized journal (one valid grouping).
+    - annotations.yaml: the exact bullets that must survive verbatim and the
+      minimum number of ### headings expected.
+
+outputs:
+  # Named 'artifacts' (not 'output' — reserved by agent-judge staging).
+  - path: artifacts
+    schema: |
+      The staged vault mirrored under artifacts/. The relevant artifact is
+      artifacts/journals/YYYY-MM-DD.md — the journal with ### topic headings added.
+
+traces:
+  stdout: true
+  stderr: true
+  metrics: true
+
+judges:
+  - name: headings_added
+    description: |
+      At least the expected number of ### topic headings were inserted under
+      the ## Notes: section.
+    check: |
+      ann = outputs.get("annotations", {})
+      files = outputs.get("files", {})
+      target = ann["target"]
+      content = files.get(target) or next(
+          (v for k, v in files.items() if k.endswith(target)), None)
+      if content is None:
+          return False, f"Target journal {target} not found"
+      notes = content.split("## Notes:", 1)[1] if "## Notes:" in content else ""
+      n = sum(1 for line in notes.splitlines() if line.strip().startswith("### "))
+      want = ann.get("min_headings", 2)
+      if n < want:
+          return False, f"Only {n} ### headings, expected >= {want}"
+      return True, f"{n} topic headings added"
+
+  - name: bullets_preserved
+    description: |
+      Every original bullet is still present verbatim — organize must only add
+      structure, never alter bullet text.
+    check: |
+      ann = outputs.get("annotations", {})
+      files = outputs.get("files", {})
+      target = ann["target"]
+      content = files.get(target) or next(
+          (v for k, v in files.items() if k.endswith(target)), "")
+      missing = [b for b in ann.get("bullets", []) if b not in content]
+      if missing:
+          return False, f"{len(missing)} bullet(s) lost/altered: {missing[:2]}"
+      return True, f"All {len(ann.get('bullets', []))} bullets preserved verbatim"
+
+  # Agent judge — runs through pi (same auth as the runner).
+  - name: grouping_quality
+    if: "not annotations.get('skip_quality', False)"
+    feedback_type: int
+    score_range: [1, 5]
+    agent:
+      runner:
+        type: cli
+        command: "{config_dir}/../bin/run-judge.sh {output_dir} {model} {args}"
+      allowed_tools: [Read, Write]
+      inputs: [artifacts]
+    description: |
+      Judge the topical coherence of the grouping: sensible heading names,
+      related bullets grouped together, contiguous groups, minimal Misc.
+    prompt: |
+      You are grading the output of the "journal-organize" skill, which groups
+      flat bullets under "## Notes:" into ### topic sub-sections WITHOUT changing
+      bullet text.
+
+      Organized files (grade ONLY the markdown journal under artifacts/;
+      ignore any execution logs — stdout/stderr/metrics — shown here):
+      {{ outputs }}
+
+      Score 1-5 on grouping quality:
+      - concise, descriptive ### headings (project names, Jira keys, meetings,
+        reading)
+      - related bullets grouped together, original order preserved
+      - Misc used sparingly
+      5 = excellent, coherent organization; 1 = incoherent or bullets altered.
+
+thresholds:
+  headings_added: {min_pass_rate: 1.0}
+  bullets_preserved: {min_pass_rate: 1.0}
+  grouping_quality: {min_mean: 3.5}

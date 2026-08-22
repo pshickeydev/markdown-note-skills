@@ -1,0 +1,3 @@
+args: "2026-W06"
+fixture: eval/journal-weekly/dataset/cases/001-basic-week/vault
+target: summaries/2026-W06.md

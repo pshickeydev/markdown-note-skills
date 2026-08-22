@@ -1,0 +1,3 @@
+args: "2026-01-17 Debugged flaky CI on the nightly pipeline"
+fixture: eval/journal-note/dataset/cases/003-empty-placeholder/vault
+target: journals/2026-01-17.md

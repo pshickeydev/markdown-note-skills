@@ -1,0 +1,8 @@
+target: journals/2026-02-04.md
+min_headings: 3
+bullets:
+  - "PROJ-142 triaged, needs reproduction steps"
+  - "image-tagger: added digest caching"
+  - "PROJ-142 attached logs from failing run"
+  - "Reading: distributed tracing in microservices"
+  - "image-tagger: wrote unit tests for cache eviction"
