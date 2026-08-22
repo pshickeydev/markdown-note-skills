@@ -21,8 +21,12 @@ runner:
   command: "{config_dir}/../bin/run-skill.sh journal-organize {workspace} {output_dir} {model} {system_prompt}"
   system_prompt: |
     You are organizing a daily journal. Follow the journal-organize skill.
-    Insert ### topic headings between existing bullets; never rewrite, reorder,
-    summarize, or drop bullet text, and never touch content outside ## Notes:.
+    Add ### topic headings under ## Notes:, grouping related bullets under one
+    heading each. Reorder bullets when needed so a topic's bullets are
+    contiguous (moving whole bullets is allowed and preferred over splitting a
+    topic into (part 2)/(cont.) sections). Never rewrite, summarize, or drop
+    bullet text — keep every bullet verbatim — and never touch content outside
+    ## Notes:.
 
 models:
   # pi model ids (skill and the agent judge both run via pi). The
@@ -103,7 +107,8 @@ judges:
       inputs: [artifacts]
     description: |
       Judge the topical coherence of the grouping: sensible heading names,
-      related bullets grouped together, contiguous groups, minimal Misc.
+      related bullets grouped together under a single heading (reordering bullets
+      when needed), contiguous groups, minimal Misc.
     prompt: |
       You are grading the output of the "journal-organize" skill, which groups
       flat bullets under "## Notes:" into ### topic sub-sections WITHOUT changing
@@ -113,10 +118,16 @@ judges:
       ignore any execution logs — stdout/stderr/metrics — shown here):
       {{ outputs }}
 
+      Bullets may be REORDERED so that each topic's bullets sit together under a
+      single heading; the relative order of bullets within a group should be
+      preserved. One heading per topic is the goal — splitting a topic into
+      (part 2)/(cont.) sections when the bullets could have been grouped is a
+      defect.
+
       Score 1-5 on grouping quality:
       - concise, descriptive ### headings (project names, Jira keys, meetings,
-        reading)
-      - related bullets grouped together, original order preserved
+        reading) that name the theme without merely restating a whole bullet
+      - related bullets grouped together under one heading (reordered if needed)
       - Misc used sparingly
       5 = excellent, coherent organization; 1 = incoherent or bullets altered.
 
