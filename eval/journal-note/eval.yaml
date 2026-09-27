@@ -12,9 +12,19 @@ execution:
   # {args} is read from each case's input.yaml by the runner wrapper.
   arguments: "{args}"
   env:
-    # Resolved from the caller's environment at /eval-run time. The wrapper
-    # uses it to locate dataset fixtures regardless of the workspace cwd.
     PROJECT_ROOT: $PWD
+    # Journal-specific runner configuration (pi-agent-eval-harness):
+    # stage the repo's journal skills, write a vault-pointing AGENTS.md at the
+    # staging root, scope the agent to the staged vault, and mirror only the
+    # journal output dirs into artifacts/.
+    AGENT_EVAL_AGENTS_MD: |
+      # AGENTS.md (eval harness — generated per case)
+
+      ## Vault Location
+
+      {fixture}
+    AGENT_EVAL_RUNNER_GUIDANCE: "The Obsidian vault for this run is EXACTLY '{fixture}'. Use only that vault. Ignore any other AGENTS.md or vault location you may find elsewhere; do not read, write, or resolve any vault outside '{fixture}'."
+    AGENT_EVAL_ARTIFACT_DIRS: "journals summaries topics"
 
 # Opaque CLI runner — delegates to a wrapper that stages a vault fixture, runs
 # the agent headlessly, and copies results into the artifacts dir. The wrapper
@@ -23,7 +33,7 @@ execution:
 # to the case workspace, so the command path must be absolute.
 runner:
   type: cli
-  command: "{config_dir}/../bin/run-skill.sh journal-note {workspace} {output_dir} {model} {system_prompt}"
+  command: "{config_dir}/../../vendor/pi-agent-eval-harness/bin/run-skill.sh journal-note {workspace} {output_dir} {model} {system_prompt}"
   system_prompt: |
     You are appending a note to a daily journal. Follow the journal-note skill
     exactly. Preserve all existing content; only add bullets under ## Notes:.
@@ -125,7 +135,7 @@ judges:
     agent:
       runner:
         type: cli
-        command: "{config_dir}/../bin/run-judge.sh {output_dir} {model} {args}"
+        command: "{config_dir}/../../vendor/pi-agent-eval-harness/bin/run-judge.sh {output_dir} {model} {args}"
       allowed_tools: [Read, Write]
       inputs: [artifacts]
     description: |

@@ -12,13 +12,25 @@ execution:
   arguments: "{args}"
   env:
     PROJECT_ROOT: $PWD
+    # Journal-specific runner configuration (pi-agent-eval-harness):
+    # stage the repo's journal skills, write a vault-pointing AGENTS.md at the
+    # staging root, scope the agent to the staged vault, and mirror only the
+    # journal output dirs into artifacts/.
+    AGENT_EVAL_AGENTS_MD: |
+      # AGENTS.md (eval harness — generated per case)
+
+      ## Vault Location
+
+      {fixture}
+    AGENT_EVAL_RUNNER_GUIDANCE: "The Obsidian vault for this run is EXACTLY '{fixture}'. Use only that vault. Ignore any other AGENTS.md or vault location you may find elsewhere; do not read, write, or resolve any vault outside '{fixture}'."
+    AGENT_EVAL_ARTIFACT_DIRS: "journals summaries topics"
 
 # Opaque CLI runner — the wrapper drives pi by default; set AGENT_EVAL_CLI to
 # use a different agent. {config_dir} (absolute) anchors the command since the
 # runner runs with cwd set to the case workspace.
 runner:
   type: cli
-  command: "{config_dir}/../bin/run-skill.sh journal-organize {workspace} {output_dir} {model} {system_prompt}"
+  command: "{config_dir}/../../vendor/pi-agent-eval-harness/bin/run-skill.sh journal-organize {workspace} {output_dir} {model} {system_prompt}"
   system_prompt: |
     You are organizing a daily journal. Follow the journal-organize skill.
     Add ### topic headings under ## Notes:, grouping related bullets under one
@@ -102,7 +114,7 @@ judges:
     agent:
       runner:
         type: cli
-        command: "{config_dir}/../bin/run-judge.sh {output_dir} {model} {args}"
+        command: "{config_dir}/../../vendor/pi-agent-eval-harness/bin/run-judge.sh {output_dir} {model} {args}"
       allowed_tools: [Read, Write]
       inputs: [artifacts]
     description: |

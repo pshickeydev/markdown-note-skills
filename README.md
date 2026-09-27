@@ -106,11 +106,13 @@ Automated evaluations for these skills live under [`eval/`](eval/), wired to the
 [agent-eval-harness](https://github.com/opendatahub-io/agent-eval-harness)
 (pinned to **v1.41.0**). Each skill has an `eval.yaml` plus starter test cases with
 throwaway vault fixtures; both the skill runs and the quality judges execute
-through [pi](https://github.com/earendil-works/pi-coding-agent). Pi also drives
-the whole pipeline: the `.pi/skills/eval-*` orchestrator skills
+through [pi](https://github.com/earendil-works/pi-coding-agent). The pi wiring
+(runner/judge wrappers, pipeline driver, orchestrator skills) lives in the
+[`vendor/pi-agent-eval-harness`](vendor/pi-agent-eval-harness) submodule, with
+the `.pi/skills/eval-*` orchestrator skills
 (`/skill:eval-setup`, `/skill:eval-run`, `/skill:eval-review`, `/skill:eval-optimize`,
-`/skill:eval-compare`, `/skill:eval-check`, …) mirror the harness's Claude Code
-commands. See [`eval/README.md`](eval/README.md) for setup, the runner model,
+`/skill:eval-compare`, `/skill:eval-check`, …) symlinked from it. See
+[`eval/README.md`](eval/README.md) for setup, the runner model,
 version pinning, and the vault-isolation safeguards.
 
 ## Customization

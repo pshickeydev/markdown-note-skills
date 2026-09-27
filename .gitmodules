@@ -1,0 +1,3 @@
+[submodule "vendor/pi-agent-eval-harness"]
+	path = vendor/pi-agent-eval-harness
+	url = ../pi-agent-eval-harness
